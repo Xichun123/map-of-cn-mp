@@ -52,6 +52,17 @@ function compressImage(filePath) {
   })
 }
 
+function uploadErrorMessage(err) {
+  const data = err && err.data
+  return String(
+    (data && data.message) ||
+    (err && err.errMsg) ||
+    (err && err.message) ||
+    err ||
+    '上传失败'
+  )
+}
+
 module.exports = {
   // { journeys: [...], anniversaries: [...] }
   getJourneys: () => {
@@ -117,16 +128,17 @@ module.exports = {
         success: (res) => {
           try {
             const data = JSON.parse(res.data)
-            if (data && data.imageUrl) resolve(data)
-            else reject(data)
+            if (res.statusCode >= 200 && res.statusCode < 300 && data && data.imageUrl) resolve(data)
+            else reject({ statusCode: res.statusCode, data, errMsg: (data && data.message) || 'upload_image failed' })
           } catch (e) {
-            reject(e)
+            reject({ statusCode: res.statusCode, data: res.data, errMsg: e.message || 'upload response parse failed' })
           }
         },
         fail: reject,
       })
     })
   },
+  uploadErrorMessage,
 }
 // 向后兼容旧调用名
 module.exports.uploadDishImage = module.exports.uploadImage

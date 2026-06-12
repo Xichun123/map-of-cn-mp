@@ -1,0 +1,41 @@
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+08:00
+    environment:
+      TZ: Asia/Shanghai
+      MYSQL_DATABASE: ${MAP_DB_NAME}
+      MYSQL_USER: ${MAP_DB_USER}
+      MYSQL_PASSWORD: ${MAP_DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MAP_DB_ROOT_PASSWORD}
+    volumes:
+      - db-data:/var/lib/mysql
+      - ./schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u${MAP_DB_USER} -p${MAP_DB_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  app:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Shanghai
+    ports:
+      - "127.0.0.1:18083:80"
+    volumes:
+      - ./api:/var/www/html/api:ro
+      - ./private:/var/www/html/_private:ro
+      - ./uploads:/var/www/html/api/uploads
+
+volumes:
+  db-data:

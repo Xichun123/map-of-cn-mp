@@ -1,0 +1,18 @@
+silvia.dpdns.org {
+    encode zstd gzip
+    request_body {
+        max_size 128MB
+    }
+
+    handle_path /api/* {
+        reverse_proxy 107.175.63.147:18082 {
+            flush_interval -1
+            transport http {
+                response_header_timeout 10m
+                dial_timeout 10s
+            }
+        }
+    }
+
+    respond "Map of Us API" 200
+}

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '_private/db.php';
+require_once dirname(__DIR__) . '/_private/db.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
@@ -51,7 +51,7 @@ try {
     $rows = $pdo->query('SELECT DISTINCT province FROM journeys WHERE is_visible = 1')->fetchAll();
     $names = array_values(array_filter(array_map(static fn($r) => (string) $r['province'], $rows)));
 
-    $geoPath = dirname(__DIR__) . '_private/china-provinces.json';
+    $geoPath = dirname(__DIR__) . '/_private/china-provinces.json';
     $geo = json_decode((string) file_get_contents($geoPath), true);
 
     $result = [];

@@ -93,14 +93,18 @@ Page({
         const temps = (res.tempFiles || []).map((f) => f.tempFilePath)
         wx.showLoading({ title: '上传中', mask: true })
         const uploaded = []
+        const failed = []
         for (const path of temps) {
           try {
             const r = await api.uploadImage(path, this.openid)
             if (r && r.imageUrl) uploaded.push(r.imageUrl)
-          } catch (e) {}
+          } catch (e) {
+            failed.push(api.uploadErrorMessage(e))
+          }
         }
         wx.hideLoading()
         this.setData({ 'editor.photos': [...photos, ...uploaded] })
+        if (failed.length) wx.showModal({ title: '有照片没传上去', content: failed[0], showCancel: false })
       },
     })
   },

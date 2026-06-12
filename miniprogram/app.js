@@ -2,7 +2,7 @@ const api = require('./utils/api')
 
 App({
   globalData: {
-    apiBase: 'https://ql.hlat.xyz/api',
+    apiBase: 'https://silvia.dpdns.org/api',
     title: 'Map of Us',
     subtitle: '我们的地图 · 一起走过的路',
     cart: {},

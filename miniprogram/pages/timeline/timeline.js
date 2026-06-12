@@ -1,5 +1,5 @@
 const api = require('../../utils/api')
-const { prettyDate, toneGradient, anniversaryCount, weatherGlyph, seasonGlyph } = require('../../utils/util')
+const { prettyDate, todayISO, toneGradient, anniversaryCount, weatherGlyph, seasonGlyph } = require('../../utils/util')
 const { REGIONS, PROVINCES } = require('../../utils/regions')
 const app = getApp()
 
@@ -211,7 +211,7 @@ Page({
         cityOptions,
         province,
         city: cityOptions[0] || '',
-        date: new Date().toISOString().slice(0, 10),
+        date: todayISO(),
         title: '',
         intro: '',
         season: '',
@@ -298,11 +298,18 @@ Page({
       } catch (e) {}
       const res = await api.admin({ action: 'add_journey', openid: user.openid, city: r.city, province: r.province, date: r.date, season: r.season || '', weather: '', landmark: '', title: r.title || '', intro: r.intro || '', coverTone: 'tone-slate', latitude: lat, longitude: lng, tags: [], notes: r.intro ? [r.intro] : [] })
       const jid = res.id
+      const failed = []
       for (const fp of r.photos) {
-        try { const up = await api.uploadImage(fp, user.openid); if (up.imageUrl) await api.admin({ action: 'add_journey_photo', openid: user.openid, journeyId: jid, imageUrl: up.imageUrl, tone: 'tone-ink' }) } catch (e) {}
+        try {
+          const up = await api.uploadImage(fp, user.openid)
+          if (up.imageUrl) await api.admin({ action: 'add_journey_photo', openid: user.openid, journeyId: jid, imageUrl: up.imageUrl, tone: 'tone-ink' })
+        } catch (e) {
+          failed.push(api.uploadErrorMessage(e))
+        }
       }
       wx.hideLoading(); this.setData({ 'recorder.saving': false })
-      wx.showToast({ title: '已记录', icon: 'success' })
+      if (failed.length) wx.showModal({ title: '文字已记录，照片没传全', content: failed[0], showCancel: false })
+      else wx.showToast({ title: '已记录', icon: 'success' })
       this.closeRecorder()
       this.load()
     } catch (e) {

@@ -1,0 +1,7 @@
+:18082 {
+    @dm remote_ip 64.186.249.138
+    handle @dm {
+        reverse_proxy 127.0.0.1:18083
+    }
+    respond "Forbidden" 403
+}

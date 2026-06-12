@@ -46,6 +46,14 @@ function nextAnniversary(anniversaries) {
   return best
 }
 
+function avatarErrorMessage(err) {
+  const raw = api.uploadErrorMessage(err)
+  if (raw.indexOf('url not in domain list') >= 0 || raw.indexOf('domain list') >= 0) {
+    return '微信后台还没把 silvia.dpdns.org 加到 uploadFile 合法域名'
+  }
+  return raw || '未知错误'
+}
+
 Page({
   data: {
     user: null,
@@ -281,7 +289,16 @@ Page({
       wx.showToast({ title: '已更新头像', icon: 'success' })
     } catch (err) {
       wx.hideLoading()
-      wx.showToast({ title: '头像暂时没换好', icon: 'none' })
+      const msg = avatarErrorMessage(err)
+      try {
+        console.error('[AvatarUpload] failed', err)
+        wx.setStorageSync('last_avatar_error', msg)
+      } catch (e) {}
+      wx.showModal({
+        title: '头像没换好',
+        content: msg,
+        showCancel: false,
+      })
     }
   },
 

@@ -1,6 +1,6 @@
 const app = getApp()
 const api = require('../../utils/api')
-const { TONE_LIST, anniversaryCount, prettyDate } = require('../../utils/util')
+const { TONE_LIST, anniversaryCount, prettyDate, todayISO } = require('../../utils/util')
 
 const SPICY = ['不辣', '微辣', '中辣', '重辣']
 const STATUS_FLOW = [
@@ -505,7 +505,7 @@ Page({
         } catch (e) {
           /* 天气可选，失败不影响定位填充 */
         }
-        if (!this.data.journeyEditor.season) patch['journeyEditor.season'] = seasonFromDate(this.data.journeyEditor.date || new Date().toISOString().slice(0, 10))
+        if (!this.data.journeyEditor.season) patch['journeyEditor.season'] = seasonFromDate(this.data.journeyEditor.date || todayISO())
         patch['journeyEditor.locating'] = false
         this.setData(patch)
         wx.vibrateShort && wx.vibrateShort({ type: 'light' })
@@ -563,12 +563,13 @@ Page({
         if (!paths.length) return
         this.setData({ ['journeyEditor.uploading']: true })
         let done = 0
+        const failed = []
         wx.showLoading({ title: `正在收藏 0/${paths.length}`, mask: true })
         for (const fp of paths) {
           try {
             await this.uploadOneJourneyPhoto(fp, ed)
           } catch (e) {
-            /* 单张失败不阻塞其余 */
+            failed.push(api.uploadErrorMessage(e))
           }
           done += 1
           wx.showLoading({ title: `正在收藏 ${done}/${paths.length}`, mask: true })
@@ -581,6 +582,7 @@ Page({
           this.setData({ ['journeyEditor.uploading']: false })
         }
         wx.hideLoading()
+        if (failed.length) wx.showModal({ title: '有照片没传上去', content: failed[0], showCancel: false })
       },
     })
   },
@@ -688,16 +690,18 @@ Page({
       wx.showLoading({ title: `收藏照片 0/${pending.length}`, mask: true })
       const newEd = { ...ed, id: res.id }
       let done = 0
+      const failed = []
       for (const fp of pending) {
         try {
           await this.uploadOneJourneyPhoto(fp, newEd)
         } catch (e) {
-          /* 单张失败不阻塞其余 */
+          failed.push(api.uploadErrorMessage(e))
         }
         done += 1
         wx.showLoading({ title: `收藏照片 ${done}/${pending.length}`, mask: true })
       }
       wx.hideLoading()
+      if (failed.length) wx.showModal({ title: '足迹已保存，照片没传全', content: failed[0], showCancel: false })
     }
     this.setData({ ['journeyEditor.show']: false, ['journeyEditor.pendingPhotos']: [] })
     await this.loadJourneys()

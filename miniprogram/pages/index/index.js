@@ -1,5 +1,5 @@
 const api = require('../../utils/api')
-const { anniversaryCount } = require('../../utils/util')
+const { anniversaryCount, todayISO } = require('../../utils/util')
 
 const app = getApp()
 
@@ -468,13 +468,13 @@ Page({
           dateShort: String(j.date),
         }))
 
-      const todayISO = new Date().toISOString().slice(0, 10)
+      const today = todayISO()
       const upcomingPlan = [...plans]
         .filter((p) => p.visible !== false)
         .sort((a, b) => String(a.planDateISO || a.planDate || '').localeCompare(String(b.planDateISO || b.planDate || '')))
         .find((p) => {
           const d = String(p.planDateISO || p.planDate || '').slice(0, 10)
-          return d && d >= todayISO
+          return d && d >= today
         }) || plans[0] || null
       const upcomingPlanCard = upcomingPlan
         ? {
@@ -770,7 +770,7 @@ Page({
 
   loadDailyQuote() {
     // 每天只请求一次，缓存到当天
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayISO()
     const cached = wx.getStorageSync('daily_quote_date')
     if (cached === today) {
       const q = wx.getStorageSync('daily_quote')

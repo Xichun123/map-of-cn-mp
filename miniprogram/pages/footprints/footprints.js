@@ -1,6 +1,7 @@
 const app = getApp()
 const api = require('../../utils/api')
 const { REGIONS, PROVINCES } = require('../../utils/regions')
+const { todayISO } = require('../../utils/util')
 
 // 城市名归一（去后缀），用于分组与计数
 function cityKey(c) {
@@ -231,7 +232,7 @@ Page({
     const user = app.getUser()
     if (!user || !user.openid) { wx.showToast({ title: '请先登录', icon: 'none' }); return }
     wx.vibrateShort && wx.vibrateShort({ type: 'light' })
-    this.setData({ checkin: { show: true, locating: true, saving: false, lat: 0, lng: 0, city: '', province: '', title: '', weather: '', season: seasonFromDate(new Date().toISOString().slice(0, 10)), photos: [], provinceIndex: 0, cityIndex: 0, cityOptions: REGIONS[PROVINCES[0]] || [] } })
+    this.setData({ checkin: { show: true, locating: true, saving: false, lat: 0, lng: 0, city: '', province: '', title: '', weather: '', season: seasonFromDate(todayISO()), photos: [], provinceIndex: 0, cityIndex: 0, cityOptions: REGIONS[PROVINCES[0]] || [] } })
     wx.getLocation({
       type: 'gcj02',
       success: async (res) => {
@@ -341,7 +342,7 @@ Page({
     wx.showLoading({ title: '正在收藏这段路…', mask: true })
     try {
       // 1. 创建足迹
-      const today = new Date().toISOString().slice(0, 10)
+      const today = todayISO()
       const res = await api.admin({
         action: 'add_journey',
         openid: user.openid,
@@ -359,17 +360,21 @@ Page({
       const journeyId = res.id
       // 2. 依次上传照片并关联
       let done = 0
+      const failed = []
       for (const filePath of photos) {
         try {
           const up = await api.uploadImage(filePath, user.openid)
           if (up.imageUrl) await api.admin({ action: 'add_journey_photo', openid: user.openid, journeyId, imageUrl: up.imageUrl, tone: 'tone-ink' })
-        } catch { /* 单张失败继续 */ }
+        } catch (e) {
+          failed.push(api.uploadErrorMessage(e))
+        }
         done += 1
         if (photos.length) wx.showLoading({ title: `收藏照片 ${done}/${photos.length}`, mask: true })
       }
       wx.hideLoading()
       this.setData({ 'checkin.saving': false })
-      wx.showToast({ title: '这段路收好了', icon: 'success' })
+      if (failed.length) wx.showModal({ title: '足迹已保存，照片没传全', content: failed[0], showCancel: false })
+      else wx.showToast({ title: '这段路收好了', icon: 'success' })
       this.closeCheckin()
       this.loadAll()
     } catch (e) {

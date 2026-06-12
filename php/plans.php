@@ -6,7 +6,7 @@ declare(strict_types=1);
  * 返回所有可见的计划及其目的地（按排序）。任何登录用户都可查看；编辑在 admin_api.php。
  */
 
-require_once dirname(__DIR__) . '_private/db.php';
+require_once dirname(__DIR__) . '/_private/db.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');

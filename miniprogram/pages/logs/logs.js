@@ -1,5 +1,6 @@
 const app = getApp()
 const api = require('../../utils/api')
+const { todayISO } = require('../../utils/util')
 
 const CATS = [
   { key: 'all', name: '全部', icon: '◎' },
@@ -57,7 +58,7 @@ Page({
   },
 
   openEditor() {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayISO()
     const active = this.data.activecat === 'all' ? 'movie' : this.data.activecat
     const cat = this.data.editCats.find((c) => c.key === active) || this.data.editCats[0]
     this.setData({

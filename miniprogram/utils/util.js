@@ -82,6 +82,11 @@ function prettyDate(dotted) {
   return `${y}年${Number(m)}月${Number(d)}日`
 }
 
+function todayISO() {
+  const d = new Date(Date.now() + 8 * 60 * 60 * 1000)
+  return d.toISOString().slice(0, 10)
+}
+
 // 纪念日倒计时 / 正计时
 // dotted: "2024.05.01"；repeatYearly: 是否每年循环（生日/周年）
 // 返回 { text, days, kind }，kind: 'today' | 'countdown' | 'countup'
@@ -110,4 +115,4 @@ function anniversaryCount(dotted, repeatYearly) {
   return { text: `已 ${-diff} 天`, days: -diff, kind: 'countup' }
 }
 
-module.exports = { toneGradient, prettyDate, anniversaryCount, weatherGlyph, seasonGlyph, TONES, TONE_LIST, TONE_NAMES }
+module.exports = { toneGradient, prettyDate, todayISO, anniversaryCount, weatherGlyph, seasonGlyph, TONES, TONE_LIST, TONE_NAMES }

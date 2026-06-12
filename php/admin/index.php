@@ -8,8 +8,8 @@ declare(strict_types=1);
  */
 
 session_start();
-require_once dirname(__DIR__) . '/_private/db.php';
-$config = require dirname(__DIR__) . '/_private/config.php';
+require_once dirname(__DIR__, 2) . '/_private/db.php';
+$config = require dirname(__DIR__, 2) . '/_private/config.php';
 
 $uploadDir = $config['upload_dir'] ?? (dirname(__DIR__) . '/uploads');
 $uploadBase = $config['upload_base'] ?? '/uploads';
@@ -274,7 +274,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->prepare('DELETE FROM trip_plans WHERE id = ?')->execute([$id]);
             redirect('plans');
         } elseif ($action === 'save_settings') {
-            $cfgPath = dirname(__DIR__) . '/_private/config.php';
+            $cfgPath = dirname(__DIR__, 2) . '/_private/config.php';
             $cfg = require $cfgPath;
             // 只更新非空提交的字段，空值则保留原值
             foreach (['deepseek_key', 'amap_key'] as $k) {
@@ -879,7 +879,7 @@ $statusLabels = ['pending' => '待处理', 'accepted' => '已接单', 'done' => 
     <?php endif; ?>
   <?php elseif ($view === 'settings'): ?>
     <?php
-      $cfgPath = dirname(__DIR__) . '/_private/config.php';
+      $cfgPath = dirname(__DIR__, 2) . '/_private/config.php';
       $cfg = is_file($cfgPath) ? (require $cfgPath) : [];
       function mask_key(string $k): string {
         return $k === '' ? '（未配置）' : mb_substr($k, 0, 4) . str_repeat('*', max(4, mb_strlen($k) - 4));

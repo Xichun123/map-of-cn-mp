@@ -64,9 +64,9 @@ Page({
       // 重新加载第一页
       this.setData({ moments: [], hasMore: true, uploading: false })
       this.loadMore()
-    } catch {
+    } catch (err) {
       this.setData({ uploading: false })
-      wx.showToast({ title: '这张剪影暂时没传上去', icon: 'none' })
+      wx.showModal({ title: '这张剪影暂时没传上去', content: api.uploadErrorMessage(err), showCancel: false })
     }
   },
 
