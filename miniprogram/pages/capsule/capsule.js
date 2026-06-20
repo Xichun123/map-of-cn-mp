@@ -162,7 +162,7 @@ Page({
     try {
       const data = await api.admin({ action: 'open_capsule', openid: this.openid, id: c.id })
       wx.hideLoading()
-      wx.vibrateShort && wx.vibrateShort({ type: 'medium' })
+      app.vibrateShort && app.vibrateShort({ type: 'medium' })
       this._showContent({ ...c, message: data.message, photos: data.photos || [] })
       this.loadCapsules()
     } catch (e) {

@@ -49,7 +49,7 @@ Page({
   switchMode(e) {
     const mode = e.currentTarget.dataset.mode
     if (mode === this.data.mode) return
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.setData({ mode, presets: PRESETS[mode], answer: '', answerHtml: '', placeDetail: null, tripPlan: null, error: '' })
     wx.setNavigationBarTitle({ title: TITLES[mode] })
   },

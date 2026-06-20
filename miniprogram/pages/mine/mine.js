@@ -165,17 +165,17 @@ Page({
   },
 
   openAdmin() {
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     wx.navigateTo({ url: '/pages/admin/admin' })
   },
 
   openWish() {
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     wx.navigateTo({ url: '/pages/wish/wish' })
   },
 
   openBoard() {
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     wx.navigateTo({ url: '/pages/board/board' })
   },
 
@@ -186,22 +186,22 @@ Page({
   openDashboard() { wx.navigateTo({ url: '/pages/dashboard/dashboard' }) },
 
   openAlbum() {
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     wx.navigateTo({ url: '/pages/album/album' })
   },
 
   openFootprints() {
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     wx.navigateTo({ url: '/pages/footprints/footprints' })
   },
 
   openStats() {
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     wx.navigateTo({ url: '/pages/stats/stats' })
   },
 
   openRecap() {
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     wx.navigateTo({ url: '/pages/recap/recap' })
   },
 
@@ -223,7 +223,7 @@ Page({
     const enabled = !!(e.detail && e.detail.value)
     const next = app.setHapticsEnabled ? app.setHapticsEnabled(enabled) : enabled
     this.setData({ hapticsEnabled: next })
-    if (next) wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    if (next) app.vibrateShort && app.vibrateShort({ type: 'light' })
   },
 
   claimAdmin() {
@@ -272,7 +272,7 @@ Page({
     try {
       const user = await app.login()
       wx.hideLoading()
-      wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+      app.vibrateShort && app.vibrateShort({ type: 'light' })
       this.setData({ user, monogram: this.monogram(user), nickInput: user.nickname || '', loggingIn: false })
       this.loadOrders()
     } catch (e) {
@@ -298,7 +298,7 @@ Page({
       const next = await app.login({ avatarUrl: imageUrl })
       this.setData({ user: next, monogram: this.monogram(next) })
       wx.hideLoading()
-      wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+      app.vibrateShort && app.vibrateShort({ type: 'light' })
       wx.showToast({ title: '已更新头像', icon: 'success' })
     } catch (err) {
       wx.hideLoading()
@@ -389,7 +389,7 @@ Page({
       return
     }
     app.globalData.cart = cart
-    wx.vibrateShort && wx.vibrateShort({ type: 'medium' })
+    app.vibrateShort && app.vibrateShort({ type: 'medium' })
     if (skipped > 0) {
       wx.showToast({ title: `有 ${skipped} 道已下架，已跳过`, icon: 'none' })
     }

@@ -105,7 +105,7 @@ Page({
   },
 
   retry() {
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.loadAll()
   },
 
@@ -201,7 +201,7 @@ Page({
     const key = e.currentTarget.dataset.key
     const g = (this.data.cityGroups || []).find((x) => x.key === key)
     if (!g) return
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     const pts = (this._all || [])
       .filter((j) => cityKey(j.city) === key)
       .map((j) => validCoord(j.latitude, j.longitude))
@@ -235,7 +235,7 @@ Page({
   async startCheckin() {
     const user = app.getUser()
     if (!user || !user.openid) { wx.showToast({ title: '请先登录', icon: 'none' }); return }
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.setData({ checkin: { show: true, locating: true, saving: false, lat: 0, lng: 0, city: '', province: '', title: '', weather: '', season: seasonFromDate(todayISO()), photos: [], provinceIndex: 0, cityIndex: 0, cityOptions: REGIONS[PROVINCES[0]] || [] } })
     wx.getLocation({
       type: 'gcj02',
@@ -399,7 +399,7 @@ Page({
 
   toggleRoute() {
     const show = !this.data.showRoute
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     if (show) {
       // 按日期排序的连线
       const pts = (this._all || [])

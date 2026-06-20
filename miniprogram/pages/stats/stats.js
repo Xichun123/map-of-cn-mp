@@ -87,7 +87,7 @@ Page({
   },
 
   retry() {
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.loadStats()
   },
 
@@ -270,7 +270,7 @@ Page({
   },
 
   goLogin() {
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     wx.switchTab({ url: '/pages/mine/mine' })
   },
 })

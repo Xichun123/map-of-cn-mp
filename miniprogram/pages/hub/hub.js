@@ -32,7 +32,7 @@ Page({
   open(e) {
     const url = e.currentTarget.dataset.url
     if (!url) return
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     wx.navigateTo({ url })
   },
 })

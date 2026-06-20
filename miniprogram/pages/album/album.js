@@ -41,7 +41,7 @@ Page({
   },
 
   retry() {
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.loadAll()
   },
 
@@ -107,12 +107,12 @@ Page({
   onFilter(e) {
     const city = e.currentTarget.dataset.city || ''
     if (city === this.data.filterCity) return
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.setData({ filterCity: city }, () => this.applyFilter())
   },
 
   toggleMono() {
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.setData({ mono: !this.data.mono })
   },
 
@@ -127,7 +127,7 @@ Page({
     if (!url) return
     const urls = this.data.photos.map((p) => p.imageUrl).filter(Boolean)
     const current = Math.max(0, urls.indexOf(url))
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.setData({ viewerUrls: urls, viewerCurrent: current, viewerShow: true })
   },
 
@@ -143,7 +143,7 @@ Page({
       return
     }
 
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     wx.showLoading({ title: '正在整理回忆…', mask: true })
 
     try {
@@ -214,7 +214,7 @@ Page({
   openDetail(e) {
     const id = e.currentTarget.dataset.id
     if (id === undefined || id === null || id === '') return
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     wx.navigateTo({ url: `/pages/detail/detail?id=${id}` })
   },
 

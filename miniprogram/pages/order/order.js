@@ -40,7 +40,7 @@ Page({
       .filter((i) => i.qty > 0)
     let total = 0
     items.forEach((i) => (total += i.price * i.qty))
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.setData({ items, total: this.fmt(total) }, () => this.syncCart())
   },
 
@@ -81,7 +81,7 @@ Page({
       })
       app.globalData.cart = {}
       wx.hideLoading()
-      wx.vibrateShort && wx.vibrateShort({ type: 'medium' })
+      app.vibrateShort && app.vibrateShort({ type: 'medium' })
       wx.showToast({ title: '点单成功', icon: 'success' })
       setTimeout(() => wx.switchTab({ url: '/pages/mine/mine' }), 700)
     } catch (e) {

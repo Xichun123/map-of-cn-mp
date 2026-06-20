@@ -94,7 +94,8 @@ function saveImage(imageUrl, options = {}) {
     return
   }
   const url = original ? api.originalImageUrl(imageUrl, openid) : imageUrl
-  wx.vibrateShort && wx.vibrateShort({ type: options.vibrateType || 'light' })
+  const app = getApp()
+  app.vibrateShort && app.vibrateShort({ type: options.vibrateType || 'light' })
   wx.showLoading({ title: options.loadingText || (original ? '保存原图中…' : '保存中…'), mask: true })
   withAlbumPermission(() => {
     if (localImage) saveDownloadedFile(url, messages, options.done)

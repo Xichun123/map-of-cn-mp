@@ -1,3 +1,5 @@
+const app = getApp()
+
 Component({
   data: {
     selected: 0,
@@ -33,7 +35,7 @@ Component({
       if (!target) return
       this.setData({ pressed: index })
       setTimeout(() => this.setData({ pressed: -1 }), 180)
-      if (wx.vibrateShort) wx.vibrateShort({ type: 'light' })
+      if (app.vibrateShort) app.vibrateShort({ type: 'light' })
       wx.switchTab({ url: target.page })
     },
   },

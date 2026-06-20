@@ -126,13 +126,13 @@ Page({
 
   setYear(e) {
     const y = e.currentTarget.dataset.y === this.data.filterYear ? '' : e.currentTarget.dataset.y
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.setData({ filterYear: y }, () => this.applyFilter())
   },
 
   setSeason(e) {
     const s = e.currentTarget.dataset.s === this.data.filterSeason ? '' : e.currentTarget.dataset.s
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.setData({ filterSeason: s }, () => this.applyFilter())
   },
 
@@ -142,13 +142,13 @@ Page({
   },
 
   retry() {
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.load()
   },
 
   openDetail(e) {
     const id = e.currentTarget.dataset.id
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     wx.navigateTo({ url: `/pages/detail/detail?id=${id}` })
   },
 
@@ -162,7 +162,7 @@ Page({
       wx.showToast({ title: '登录后就能一起整理', icon: 'none' })
       return
     }
-    wx.vibrateShort && wx.vibrateShort({ type: 'medium' })
+    app.vibrateShort && app.vibrateShort({ type: 'medium' })
     wx.showActionSheet({
       itemList: ['先收起这段回忆', '查看详情'],
       success: (res) => {
@@ -203,7 +203,7 @@ Page({
   openRecorder() {
     const user = app.getUser && app.getUser()
     if (!user || !user.openid) { wx.showToast({ title: '请先登录', icon: 'none' }); return }
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     const province = PROVINCES[0]
     const cityOptions = REGIONS[province] || []
     this.setData({
@@ -263,7 +263,7 @@ Page({
 
   recSeason(e) {
     const s = e.currentTarget.dataset.s
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.setData({ 'recorder.season': this.data.recorder.season === s ? '' : s })
   },
 

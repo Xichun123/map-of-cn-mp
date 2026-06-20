@@ -165,7 +165,7 @@ Page({
   switchTab(e) {
     const tab = e.currentTarget.dataset.tab
     if (tab === this.data.tab) return
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.setData({ tab })
     if (tab === 'orders' && !this.data.ordersLoaded) this.loadOrders()
     if (tab === 'todo' && !this.data.todoLoaded) this.loadTodo()
@@ -474,7 +474,7 @@ Page({
     list[idx] = list[target]
     list[target] = tmp
     const ids = list.map((x) => x.id)
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     await this.act({ action: kind === 'categories' ? 'reorder_categories' : 'reorder_dishes', ids })
     await this.loadOverview()
   },
@@ -542,7 +542,7 @@ Page({
   // 用设备当前定位一键填坐标，并尝试逆地理编码补全省/市
   locateJourneyHere() {
     if (this.data.journeyEditor.locating) return
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.setData({ ['journeyEditor.locating']: true })
     wx.getLocation({
       type: 'gcj02',
@@ -568,7 +568,7 @@ Page({
         if (!this.data.journeyEditor.season) patch['journeyEditor.season'] = seasonFromDate(this.data.journeyEditor.date || todayISO())
         patch['journeyEditor.locating'] = false
         this.setData(patch)
-        wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+        app.vibrateShort && app.vibrateShort({ type: 'light' })
         wx.showToast({ title: '地点和天气都填好了', icon: 'none' })
       },
       fail: (err) => {
@@ -836,7 +836,7 @@ Page({
     const target = idx + Number(dir)
     if (idx < 0 || target < 0 || target >= list.length) return
     ;[list[idx], list[target]] = [list[target], list[idx]]
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     await this.act({ action: 'reorder_journeys', ids: list.map((x) => x.id) })
     await this.loadJourneys()
   },
@@ -916,7 +916,7 @@ Page({
     const target = idx + Number(dir)
     if (idx < 0 || target < 0 || target >= list.length) return
     ;[list[idx], list[target]] = [list[target], list[idx]]
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     await this.act({ action: 'reorder_anniversaries', ids: list.map((x) => x.id) })
     await this.loadAnniversaries()
   },

@@ -70,6 +70,18 @@ App({
     return this.globalData.hapticsEnabled !== false
   },
 
+  vibrateShort(options = {}) {
+    options = options || {}
+    const done = { errMsg: 'vibrateShort:ok' }
+    if (this.globalData.hapticsEnabled === false || typeof wx.vibrateShort !== 'function') {
+      if (typeof options.success === 'function') options.success(done)
+      if (typeof options.complete === 'function') options.complete(done)
+      return
+    }
+    const vibrate = this._nativeVibrateShort || wx.vibrateShort.bind(wx)
+    return vibrate(options)
+  },
+
   setHapticsEnabled(enabled) {
     const next = !!enabled
     this.globalData.hapticsEnabled = next

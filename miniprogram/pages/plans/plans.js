@@ -484,7 +484,7 @@ Page({
   },
 
   retry() {
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.load()
   },
 
@@ -873,7 +873,7 @@ Page({
     const data = { title: plan.title || '行程单', meta, coverUrl: plan.cover || '', days }
 
     this.setData({ posterMaking: true })
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     wx.showLoading({ title: '生成中…', mask: true })
     wx.createSelectorQuery().in(this)
       .select('#itinPoster')
@@ -1116,7 +1116,7 @@ Page({
   selectPlan(e) {
     const i = e.currentTarget.dataset.index
     if (i === this.data.activeIndex) return
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.setData({ activeIndex: i })
     this.applyActive()
   },
@@ -1415,7 +1415,7 @@ Page({
       wx.showToast({ title: '这份行程已经很完整', icon: 'success' })
       return
     }
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.setData({ completingStops: true, completionStatus: `0/${targets.length}` })
     wx.showLoading({ title: '正在补上…', mask: true })
     let changed = 0

@@ -32,7 +32,7 @@ Page({
   },
 
   retry() {
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.loadMenu()
   },
 
@@ -110,7 +110,7 @@ Page({
     if (next === 0) delete cart[id]
     else cart[id] = { id: dish.id, name: dish.name, price: dish.price, qty: next, remark: (cart[id] && cart[id].remark) || '' }
     app.globalData.cart = cart
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.applyCart()
   },
 
@@ -121,7 +121,7 @@ Page({
   },
 
   openAi() {
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     wx.navigateTo({ url: '/pages/ai/ai?mode=dish' })
   },
 
@@ -130,7 +130,7 @@ Page({
       wx.showToast({ title: '先选几道菜吧', icon: 'none' })
       return
     }
-    wx.vibrateShort && wx.vibrateShort({ type: 'medium' })
+    app.vibrateShort && app.vibrateShort({ type: 'medium' })
     wx.navigateTo({ url: '/pages/order/order' })
   },
 })

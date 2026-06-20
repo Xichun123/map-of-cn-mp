@@ -55,7 +55,7 @@ Page({
   },
 
   retry() {
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.setData({ loading: true, error: '' })
     this.load(this._id)
   },
@@ -109,7 +109,7 @@ Page({
     if (!url) return
     const urls = (this.data.trip.photos || []).map((p) => p.imageUrl).filter(Boolean)
     const current = Math.max(0, urls.indexOf(url))
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.setData({ viewerUrls: urls, viewerCurrent: current, viewerShow: true })
   },
 
@@ -148,7 +148,7 @@ Page({
   makePoster() {
     if (this.data.making || !this.data.trip) return
     this.setData({ making: true })
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     wx.showLoading({ title: '生成中…', mask: true })
     wx.createSelectorQuery()
       .select('#poster')
@@ -188,7 +188,7 @@ Page({
 
   askAi() {
     const city = (this.data.trip && this.data.trip.city) || ''
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     wx.navigateTo({ url: `/pages/ai/ai?mode=scene&city=${encodeURIComponent(city)}` })
   },
 

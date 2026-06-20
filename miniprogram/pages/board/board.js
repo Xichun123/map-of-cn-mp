@@ -104,7 +104,7 @@ Page({
     try {
       await api.admin({ action: 'add_board_message', openid: this.data.openid, content })
       wx.hideLoading()
-      wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+      app.vibrateShort && app.vibrateShort({ type: 'light' })
       this.setData({ saving: false, content: '' })
       await this.load()
       wx.pageScrollTo({ scrollTop: 0, duration: 220 })

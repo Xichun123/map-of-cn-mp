@@ -99,7 +99,7 @@ Page({
   },
 
   retry() {
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.loadAll()
   },
 
@@ -143,7 +143,7 @@ Page({
   selectYear(e) {
     const y = e.currentTarget.dataset.year || ''
     if (y === this.data.selectedYear) return
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.setData({ selectedYear: y }, () => this.recompute())
   },
 
@@ -241,7 +241,7 @@ Page({
       wx.showToast({ title: '这段时间的照片还在路上', icon: 'none' })
       return
     }
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.setData({ slides, showShow: true })
   },
 

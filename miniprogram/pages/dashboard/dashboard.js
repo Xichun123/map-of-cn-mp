@@ -1,3 +1,4 @@
+const app = getApp()
 const api = require('../../utils/api')
 
 // 大圆距离（公里）
@@ -93,7 +94,7 @@ Page({
   },
 
   retry() {
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.loadData()
   },
 

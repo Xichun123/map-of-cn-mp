@@ -147,7 +147,7 @@ Page({
   },
 
   retry() {
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.loadAll()
   },
 
@@ -283,13 +283,13 @@ Page({
 
   // 地图上「我的位置」按钮：重新定位并平移到当前位置
   locateMe() {
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.requestLocationAccess({ recenter: true })
   },
 
   // 地图上「全部足迹」按钮：恢复成自适应显示全部去过的城市
   fitAllFootprints() {
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     const includePoints = sanitizeMapPoints(this._allPoints)
     this.setData({ userLocated: false, includePoints })
     this.fitIndexMap(includePoints)
@@ -306,7 +306,7 @@ Page({
   },
 
   enableWeather() {
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     if (this.data.locationBusy) return
     this.requestLocationAccess({ recenter: false })
   },
@@ -657,7 +657,7 @@ Page({
     if (marker) {
       const journey = (this._journeys || []).find((j) => String(j.id) === String(marker.journeyId)) || {}
       const photo = (journey.photos || []).find((p) => p.imageUrl)
-      wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+      app.vibrateShort && app.vibrateShort({ type: 'light' })
       this.setData({
         markerPreview: {
           id: marker.journeyId,
@@ -684,7 +684,7 @@ Page({
 
   openDetail(e) {
     const id = e.currentTarget.dataset.id
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     if (!id) {
       wx.switchTab({ url: '/pages/timeline/timeline' })
       return

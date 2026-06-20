@@ -117,7 +117,7 @@ Page({
 
   async toggle(e) {
     const id = e.currentTarget.dataset.id
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     try {
       await api.admin({ action: 'toggle_wish', openid: this.data.openid, id })
       this.load()

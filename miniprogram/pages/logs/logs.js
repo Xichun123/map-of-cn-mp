@@ -53,7 +53,7 @@ Page({
   switchCat(e) {
     const key = e.currentTarget.dataset.key
     if (key === this.data.activecat) return
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.setData({ activecat: key }, () => this.loadLogs())
   },
 
@@ -110,7 +110,7 @@ Page({
     this.setData({ 'editor.saving': true })
     try {
       await api.admin({ action: 'add_log', openid: user.openid, category: e.category, title: e.title, date: e.date, note: e.note, coverImage: e.coverImage, rating: e.rating })
-      wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+      app.vibrateShort && app.vibrateShort({ type: 'light' })
       this.closeEditor()
       this.loadLogs()
     } catch { wx.showToast({ title: '这条记录暂时没保存好', icon: 'none' }) }

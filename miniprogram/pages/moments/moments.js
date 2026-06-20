@@ -61,7 +61,7 @@ Page({
         caption: '',
         tags: [],
       })
-      wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+      app.vibrateShort && app.vibrateShort({ type: 'light' })
       // 重新加载第一页
       this.setData({ moments: [], hasMore: true, uploading: false })
       this.loadMore()

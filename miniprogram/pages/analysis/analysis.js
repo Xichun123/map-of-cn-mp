@@ -32,7 +32,7 @@ Page({
 
   switchTab(e) {
     const tab = e.currentTarget.dataset.tab
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+    app.vibrateShort && app.vibrateShort({ type: 'light' })
     this.setData({ activeTab: tab })
   },
 
