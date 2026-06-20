@@ -32,10 +32,36 @@ services:
       TZ: Asia/Shanghai
     ports:
       - "127.0.0.1:18083:80"
+    networks:
+      - default
+      - openlist
     volumes:
       - ./api:/var/www/html/api:ro
       - ./private:/var/www/html/_private:ro
       - ./uploads:/var/www/html/api/uploads
 
+  backup-worker:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Shanghai
+    networks:
+      - default
+      - openlist
+    volumes:
+      - ./api:/var/www/html/api:ro
+      - ./private:/var/www/html/_private:ro
+      - ./uploads:/var/www/html/api/uploads
+    command: ["sh", "-lc", "while true; do php /var/www/html/api/backup_worker.php --once; sleep 60; done"]
+
 volumes:
   db-data:
+
+networks:
+  openlist:
+    external: true
+    name: openlist_default

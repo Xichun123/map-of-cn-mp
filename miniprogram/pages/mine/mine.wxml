@@ -169,6 +169,20 @@
       </view>
     </view>
 
+    <view class="block rise d2">
+      <view class="ae-group-label">偏好</view>
+      <view class="setting-entry">
+        <view class="ae-left">
+          <view class="ae-ico ae-ico-haptic"></view>
+          <view class="ae-mid">
+            <text class="ae-zh serif">触感反馈</text>
+            <text class="ae-sub">{{hapticsEnabled ? '点击和确认时轻微震动' : '已关闭震动反馈'}}</text>
+          </view>
+        </view>
+        <switch checked="{{hapticsEnabled}}" color="#1b1712" bindchange="toggleHaptics" />
+      </view>
+    </view>
+
     <view class="block rise d3">
       <view class="sec">
         <text class="sec-zh">我们的点菜</text>

@@ -50,6 +50,30 @@
           <text class="todo-label">行程地点</text>
         </view>
       </view>
+      <view wx:if="{{backupLoaded}}" class="backup-box {{backupStatus.state}}">
+        <view class="backup-top">
+          <view class="backup-title">
+            <text class="backup-name serif">原图备份</text>
+            <text class="backup-state">{{backupStatus.stateText}}</text>
+          </view>
+          <view wx:if="{{backupStatus.failed}}" class="backup-action pressable" hover-class="pressed" bindtap="retryPhotoBackups">重新备份</view>
+        </view>
+        <view class="backup-detail">{{backupStatus.detail}}</view>
+        <view class="backup-metrics">
+          <view class="backup-metric">
+            <text class="backup-num serif">{{backupStatus.pending}}</text>
+            <text class="backup-label">待备份</text>
+          </view>
+          <view class="backup-metric">
+            <text class="backup-num serif">{{backupStatus.processing}}</text>
+            <text class="backup-label">备份中</text>
+          </view>
+          <view class="backup-metric">
+            <text class="backup-num serif">{{backupStatus.failed}}</text>
+            <text class="backup-label">失败</text>
+          </view>
+        </view>
+      </view>
       <view wx:if="{{todoLoaded && !todoIssues.length}}" class="empty">
         <view class="empty-fig empty-fig-logs"></view>
         <view class="empty-zh">这些资料都整理好了</view>
@@ -347,11 +371,6 @@
         <view class="fl">简介</view>
         <textarea class="fld area" value="{{journeyEditor.intro}}" placeholder="一句话简介（可空）" placeholder-class="ph" data-f="intro" bindinput="onJourneyField" maxlength="120" auto-height />
 
-        <view class="fl">封面色调</view>
-        <view class="tone-row">
-          <view wx:for="{{toneList}}" wx:key="*this" class="tone-chip {{journeyEditor.toneIndex === index ? 'on' : ''}}" data-index="{{index}}" bindtap="pickJourneyTone">{{item}}</view>
-        </view>
-
         <view class="fl">坐标（用于地图点亮）</view>
         <view class="fl-row">
           <view class="fl-col">
@@ -371,14 +390,14 @@
         <textarea class="fld area" value="{{journeyEditor.notesText}}" placeholder="每行一条手记" placeholder-class="ph" data-f="notesText" bindinput="onJourneyField" auto-height />
 
         <view class="fl">打卡照片墙</view>
-        <view wx:if="{{!journeyEditor.id}}" class="photo-hint">可一次选多张，保存这段足迹时会自动上传</view>
+        <view wx:if="{{!journeyEditor.id}}" class="photo-hint">可分批选择多张，保存这段足迹时会自动上传</view>
         <view class="photo-grid">
-          <view wx:for="{{journeyEditor.photos}}" wx:key="id" class="photo-cell">
+          <view wx:for="{{journeyEditor.photos}}" wx:key="id" class="photo-cell" catchtap="openJourneyPhotoPreview" data-kind="saved" data-index="{{index}}">
             <image wx:if="{{item.imageUrl}}" class="photo-img" src="{{item.imageUrl}}" mode="aspectFill" />
             <view wx:else class="photo-img {{item.tone}}"></view>
             <text class="photo-rm" catchtap="delJourneyPhoto" data-id="{{item.id}}">×</text>
           </view>
-          <view wx:for="{{journeyEditor.pendingPhotos}}" wx:key="*this" wx:for-index="pi" class="photo-cell">
+          <view wx:for="{{journeyEditor.pendingPhotos}}" wx:key="*this" wx:for-index="pi" class="photo-cell" catchtap="openJourneyPhotoPreview" data-kind="pending" data-index="{{pi}}">
             <image class="photo-img" src="{{item}}" mode="aspectFill" />
             <text class="photo-pending">待上传</text>
             <text class="photo-rm" catchtap="delPendingPhoto" data-index="{{pi}}">×</text>
@@ -387,11 +406,36 @@
             <text>{{journeyEditor.uploading ? '上传中…' : '＋ 照片'}}</text>
           </view>
         </view>
+
+        <view class="tone-head">
+          <view class="fl">备用封面底色</view>
+          <text class="tone-note">无照片时显示</text>
+        </view>
+        <view class="tone-row compact">
+          <view wx:for="{{toneSwatches}}" wx:key="tone" class="tone-chip {{journeyEditor.toneIndex === index ? 'on' : ''}}" data-index="{{index}}" bindtap="pickJourneyTone">
+            <view class="tone-dot" style="background-image: {{item.grad}};"></view>
+            <text>{{item.name}}</text>
+          </view>
+        </view>
       </scroll-view>
 
       <view class="sheet-ops">
         <text class="sbtn ghost pressable" hover-class="pressed" bindtap="closeJourneyEditor">取消</text>
         <text class="sbtn solid pressable" hover-class="pressed" bindtap="saveJourney">保存</text>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{photoPreview.show}}" class="photo-preview-mask" catchtap="closeJourneyPhotoPreview">
+    <view class="photo-preview-panel" catchtap>
+      <view class="photo-preview-stage">
+        <image wx:if="{{photoPreview.url}}" class="photo-preview-img" src="{{photoPreview.url}}" mode="aspectFit" />
+        <view wx:else class="photo-preview-img photo-preview-tone {{photoPreview.tone}}"></view>
+        <text wx:if="{{photoPreview.isCover}}" class="photo-preview-badge">当前封面</text>
+      </view>
+      <view class="photo-preview-actions">
+        <text class="photo-preview-btn ghost pressable" hover-class="pressed" bindtap="closeJourneyPhotoPreview">关闭</text>
+        <text class="photo-preview-btn solid {{photoPreview.isCover ? 'disabled' : ''}} pressable" hover-class="pressed" bindtap="setPreviewCoverPhoto">{{photoPreview.isCover ? '当前封面' : '设为封面'}}</text>
       </view>
     </view>
   </view>

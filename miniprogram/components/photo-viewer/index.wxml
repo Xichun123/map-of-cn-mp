@@ -18,7 +18,7 @@
 
   <view class="pv-bar" catchtap="noop">
     <view class="pv-save {{saving ? 'on' : ''}}" catchtap="save">
-      {{saving ? '保存中…' : '保存到相册'}}
+      {{saving ? '保存中…' : saveText}}
     </view>
   </view>
 </view>

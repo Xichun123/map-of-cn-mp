@@ -183,7 +183,7 @@
           <image class="rec-photo" src="{{item}}" mode="aspectFill"></image>
           <view class="rec-photo-del pressable" hover-class="pressed" data-idx="{{index}}" catchtap="recRemovePhoto">×</view>
         </view>
-        <view wx:if="{{recorder.photos.length<9}}" class="rec-photo-add pressable" hover-class="pressed" bindtap="recChoosePhoto">
+        <view wx:if="{{recorder.photos.length < maxJourneyPhotos}}" class="rec-photo-add pressable" hover-class="pressed" bindtap="recChoosePhoto">
           <text class="rec-add-ico">＋</text><text class="rec-add-txt">照片</text>
         </view>
       </view>

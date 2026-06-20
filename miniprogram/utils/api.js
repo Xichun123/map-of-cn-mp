@@ -39,19 +39,6 @@ function adminRequest(data) {
   return request('/admin_api.php', options)
 }
 
-// 上传前压缩，省流且更快（失败则用原图）
-function compressImage(filePath) {
-  return new Promise((resolve) => {
-    if (!filePath) return resolve(filePath)
-    wx.compressImage({
-      src: filePath,
-      quality: 80,
-      success: (r) => resolve(r.tempFilePath || filePath),
-      fail: () => resolve(filePath),
-    })
-  })
-}
-
 function uploadErrorMessage(err) {
   const data = err && err.data
   return String(
@@ -61,6 +48,11 @@ function uploadErrorMessage(err) {
     err ||
     '上传失败'
   )
+}
+
+function originalImageUrl(imageUrl, openid) {
+  const base = getApp().globalData.apiBase
+  return `${base}/admin_api.php?action=download_original&openid=${encodeURIComponent(openid || '')}&imageUrl=${encodeURIComponent(imageUrl || '')}`
 }
 
 module.exports = {
@@ -116,15 +108,18 @@ module.exports = {
   admin: adminRequest,
   // 照片智能分析：{ photos } -> { groups, highlights, amazingPlaces, travelNote }
   analyzePhotos: (data) => request('/photo_analysis.php', { method: 'POST', data, timeout: 30000 }),
-  // 上传图片（multipart）：(filePath, openid) -> { imageUrl }。菜品 / 计划封面通用。上传前自动压缩省流
-  uploadImage: async (filePath, openid) => {
-    const path = await compressImage(filePath)
+  // 上传图片（multipart）：(filePath, openid, options?) -> { imageUrl }。普通照片保存原图并返回展示图；头像只保留展示图
+  uploadImage: (filePath, openid, options = {}) => {
     return new Promise((resolve, reject) => {
+      const formData = { action: 'upload_image', openid }
+      if (options.purpose) {
+        formData.purpose = options.purpose
+      }
       wx.uploadFile({
         url: `${getApp().globalData.apiBase}/admin_api.php`,
-        filePath: path,
+        filePath,
         name: 'image',
-        formData: { action: 'upload_image', openid },
+        formData,
         success: (res) => {
           try {
             const data = JSON.parse(res.data)
@@ -139,6 +134,7 @@ module.exports = {
     })
   },
   uploadErrorMessage,
+  originalImageUrl,
 }
 // 向后兼容旧调用名
 module.exports.uploadDishImage = module.exports.uploadImage

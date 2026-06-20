@@ -81,6 +81,277 @@ function ensure_couple_messages_table(PDO $pdo): void
     );
 }
 
+function ensure_photo_backup_jobs_table(PDO $pdo): void
+{
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS photo_backup_jobs (
+          id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+          display_url VARCHAR(512) NOT NULL,
+          local_original_path VARCHAR(512) NOT NULL,
+          local_display_path VARCHAR(512) NOT NULL DEFAULT '',
+          remote_path VARCHAR(512) NOT NULL,
+          status VARCHAR(16) NOT NULL DEFAULT 'pending',
+          attempts INT NOT NULL DEFAULT 0,
+          last_error TEXT NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          completed_at DATETIME NULL,
+          PRIMARY KEY (id),
+          KEY idx_status_attempts (status, attempts, created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+    );
+}
+
+function ensure_upload_dir(string $dir): void
+{
+    if (!is_dir($dir) && !@mkdir($dir, 0755, true)) {
+        fail('创建上传目录失败', 500);
+    }
+}
+
+function load_gd_image(string $path, string $mime)
+{
+    return match ($mime) {
+        'image/jpeg' => @imagecreatefromjpeg($path),
+        'image/png' => @imagecreatefrompng($path),
+        'image/webp' => @imagecreatefromwebp($path),
+        default => false,
+    };
+}
+
+function apply_jpeg_orientation($image, string $path)
+{
+    if (!function_exists('exif_read_data')) {
+        return $image;
+    }
+    $exif = @exif_read_data($path);
+    $orientation = (int) ($exif['Orientation'] ?? 1);
+    return match ($orientation) {
+        3 => imagerotate($image, 180, 0),
+        6 => imagerotate($image, -90, 0),
+        8 => imagerotate($image, 90, 0),
+        default => $image,
+    };
+}
+
+function create_display_image(string $sourcePath, string $mime, string $destPath, int $maxSide, int $quality): void
+{
+    if (!function_exists('imagecreatetruecolor')) {
+        throw new RuntimeException('gd extension missing');
+    }
+    $src = load_gd_image($sourcePath, $mime);
+    if (!$src) {
+        throw new RuntimeException('unsupported image');
+    }
+    if ($mime === 'image/jpeg') {
+        $oriented = apply_jpeg_orientation($src, $sourcePath);
+        if ($oriented && $oriented !== $src) {
+            imagedestroy($src);
+            $src = $oriented;
+        }
+    }
+    $width = imagesx($src);
+    $height = imagesy($src);
+    if ($width <= 0 || $height <= 0) {
+        imagedestroy($src);
+        throw new RuntimeException('invalid image size');
+    }
+    $ratio = min(1.0, $maxSide / max($width, $height));
+    $targetWidth = max(1, (int) round($width * $ratio));
+    $targetHeight = max(1, (int) round($height * $ratio));
+    $dst = imagecreatetruecolor($targetWidth, $targetHeight);
+    $white = imagecolorallocate($dst, 255, 255, 255);
+    imagefilledrectangle($dst, 0, 0, $targetWidth, $targetHeight, $white);
+    imagecopyresampled($dst, $src, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
+    if (!imagejpeg($dst, $destPath, $quality)) {
+        imagedestroy($src);
+        imagedestroy($dst);
+        throw new RuntimeException('write display image failed');
+    }
+    imagedestroy($src);
+    imagedestroy($dst);
+}
+
+function webdav_backup_url(array $config, string $relative): string
+{
+    $base = rtrim((string) ($config['quark_webdav_base'] ?? 'http://127.0.0.1:5244/dav/quark/map-of-us-originals'), '/');
+    $parts = array_values(array_filter(explode('/', trim($relative, '/')), static fn ($part) => $part !== ''));
+    return $base . '/' . implode('/', array_map('rawurlencode', $parts));
+}
+
+function delete_webdav_backup_file(array $config, string $remotePath): void
+{
+    $user = (string) ($config['quark_webdav_user'] ?? '');
+    $pass = (string) ($config['quark_webdav_pass'] ?? '');
+    if ($user === '' || $pass === '') {
+        throw new RuntimeException('原图备份未配置');
+    }
+    $ch = curl_init(webdav_backup_url($config, $remotePath));
+    curl_setopt_array($ch, [
+        CURLOPT_CUSTOMREQUEST => 'DELETE',
+        CURLOPT_HTTPAUTH => CURLAUTH_BASIC,
+        CURLOPT_USERPWD => $user . ':' . $pass,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_TIMEOUT => 60,
+        CURLOPT_HTTPHEADER => ['Expect:'],
+    ]);
+    curl_exec($ch);
+    $errno = curl_errno($ch);
+    $error = curl_error($ch);
+    $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    curl_close($ch);
+    if ($errno) {
+        throw new RuntimeException('WebDAV DELETE failed: ' . $error);
+    }
+    if (!in_array($status, [200, 202, 204, 404], true)) {
+        throw new RuntimeException('WebDAV DELETE HTTP ' . $status);
+    }
+}
+
+function has_webdav_backup_config(array $config): bool
+{
+    return (string) ($config['quark_webdav_user'] ?? '') !== '' && (string) ($config['quark_webdav_pass'] ?? '') !== '';
+}
+
+function cleanup_photo_original_backup(PDO $pdo, array $config, string $displayUrl): void
+{
+    $displayUrl = trim($displayUrl);
+    if ($displayUrl === '') {
+        return;
+    }
+    ensure_photo_backup_jobs_table($pdo);
+    $st = $pdo->prepare(
+        'SELECT id, local_original_path, remote_path, status, last_error
+         FROM photo_backup_jobs
+         WHERE display_url = ?
+         ORDER BY id DESC'
+    );
+    $st->execute([$displayUrl]);
+    $jobs = $st->fetchAll();
+    if (!$jobs) {
+        return;
+    }
+
+    foreach ($jobs as $job) {
+        $local = (string) ($job['local_original_path'] ?? '');
+        $hadLocal = $local !== '' && is_file($local);
+        if ($hadLocal && !@unlink($local)) {
+            throw new RuntimeException('删除本地原图失败');
+        }
+        $remote = (string) ($job['remote_path'] ?? '');
+        $status = (string) ($job['status'] ?? '');
+        $lastError = (string) ($job['last_error'] ?? '');
+        $failedAfterUpload = $status === 'failed' && stripos($lastError, 'delete local original failed') !== false;
+        $shouldDeleteRemote = $remote !== '' && (
+            in_array($status, ['done', 'processing'], true) ||
+            $failedAfterUpload ||
+            ($status === 'pending' && !$hadLocal && has_webdav_backup_config($config))
+        );
+        if ($shouldDeleteRemote) {
+            delete_webdav_backup_file($config, $remote);
+        }
+    }
+
+    $ids = array_map(static fn ($row) => (int) $row['id'], $jobs);
+    $pdo->exec(
+        'UPDATE photo_backup_jobs
+         SET status = "deleted", last_error = NULL, completed_at = NOW(), updated_at = NOW()
+         WHERE id IN (' . implode(',', $ids) . ')'
+    );
+}
+
+function cleanup_journey_photo_backup_if_unused(PDO $pdo, array $config, string $imageUrl, string $excludePhotoId): void
+{
+    $imageUrl = trim($imageUrl);
+    if ($imageUrl === '') {
+        return;
+    }
+    $st = $pdo->prepare('SELECT COUNT(*) FROM journey_photos WHERE image_url = ? AND id <> ?');
+    $st->execute([$imageUrl, $excludePhotoId]);
+    if ((int) $st->fetchColumn() > 0) {
+        return;
+    }
+    cleanup_photo_original_backup($pdo, $config, $imageUrl);
+}
+
+function cleanup_journey_photo_backups_for_deleted_journey(PDO $pdo, array $config, string $journeyId): void
+{
+    $st = $pdo->prepare(
+        'SELECT DISTINCT image_url
+         FROM journey_photos
+         WHERE journey_id = ? AND image_url IS NOT NULL AND image_url <> ""'
+    );
+    $st->execute([$journeyId]);
+    $urls = array_map(static fn ($row) => (string) $row['image_url'], $st->fetchAll());
+    foreach ($urls as $url) {
+        $ref = $pdo->prepare('SELECT COUNT(*) FROM journey_photos WHERE image_url = ? AND journey_id <> ?');
+        $ref->execute([$url, $journeyId]);
+        if ((int) $ref->fetchColumn() === 0) {
+            cleanup_photo_original_backup($pdo, $config, $url);
+        }
+    }
+}
+
+function image_mime_from_path(string $path): string
+{
+    $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+    return match ($ext) {
+        'jpg', 'jpeg' => 'image/jpeg',
+        'png' => 'image/png',
+        'webp' => 'image/webp',
+        'gif' => 'image/gif',
+        default => 'application/octet-stream',
+    };
+}
+
+function stream_image_file(string $path, string $downloadName = ''): void
+{
+    if (!is_file($path)) {
+        fail('原图不存在', 404);
+    }
+    $name = $downloadName !== '' ? $downloadName : basename($path);
+    header('Content-Type: ' . image_mime_from_path($path));
+    header('Content-Length: ' . (string) filesize($path));
+    header('Content-Disposition: inline; filename="' . addslashes($name) . '"');
+    readfile($path);
+    exit;
+}
+
+function stream_webdav_image(array $config, string $remotePath): void
+{
+    $user = (string) ($config['quark_webdav_user'] ?? '');
+    $pass = (string) ($config['quark_webdav_pass'] ?? '');
+    if ($user === '' || $pass === '') {
+        fail('原图备份未配置', 503);
+    }
+    $url = webdav_backup_url($config, $remotePath);
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPAUTH => CURLAUTH_BASIC,
+        CURLOPT_USERPWD => $user . ':' . $pass,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_TIMEOUT => 180,
+        CURLOPT_HTTPHEADER => ['Expect:'],
+    ]);
+    $body = curl_exec($ch);
+    $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    $contentType = (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+    curl_close($ch);
+    if ($status !== 200 || !is_string($body) || $body === '') {
+        fail('原图暂时取不到', 404);
+    }
+    if (stripos($contentType, 'image/') !== 0) {
+        $contentType = image_mime_from_path($remotePath);
+    }
+    header('Content-Type: ' . $contentType);
+    header('Content-Length: ' . (string) strlen($body));
+    header('Content-Disposition: inline; filename="' . addslashes(basename($remotePath)) . '"');
+    echo $body;
+    exit;
+}
+
 /** 经纬度规整：合法的数字字符串/数字返回 float，否则返回 null */
 function norm_coord($v): ?float
 {
@@ -377,8 +648,9 @@ try {
         'wishes', 'add_wish', 'update_wish', 'del_wish', 'toggle_wish',
         'board_messages', 'add_board_message', 'del_board_message',
         'expenses', 'add_expense', 'del_expense',
-        'add_journey_photo', 'del_journey_photo',
+        'add_journey_photo', 'set_journey_cover_photo', 'del_journey_photo',
         'geo', 'regeo', 'weather', 'ai_recommend', 'ai_place', 'ai_plan', 'import_plan', 'upload_image',
+        'photo_backup_status', 'retry_photo_backups', 'download_original',
         'ai_tag', 'ai_highlights', 'add_moment', 'list_moments', 'del_moment',
         /* 菜单后台：菜品 / 分类 / 订单 —— 情侣双方都可编辑 */
         'overview', 'orders', 'set_order_status',
@@ -730,6 +1002,11 @@ try {
 
         case 'del_journey': {
             $id = (string) ($body['id'] ?? '');
+            try {
+                cleanup_journey_photo_backups_for_deleted_journey($pdo, $config, $id);
+            } catch (Throwable $e) {
+                fail('夸克原图删除失败', 502);
+            }
             $pdo->prepare('DELETE FROM journeys WHERE id = ?')->execute([$id]);
             out(['ok' => true]);
         }
@@ -1166,8 +1443,11 @@ try {
             if (empty($_FILES['image']['tmp_name']) || !is_uploaded_file($_FILES['image']['tmp_name'])) {
                 fail('未收到图片');
             }
-            if (($_FILES['image']['size'] ?? 0) > 6 * 1024 * 1024) {
-                fail('图片过大（上限 6MB）');
+            $purpose = preg_replace('/[^a-z0-9_-]/i', '', (string) ($_POST['purpose'] ?? ''));
+            $isAvatar = $purpose === 'avatar';
+            $maxMb = max(1, (int) ($config['upload_original_max_mb'] ?? 30));
+            if (($_FILES['image']['size'] ?? 0) > $maxMb * 1024 * 1024) {
+                fail('图片过大（上限 ' . $maxMb . 'MB）');
             }
             $tmp = $_FILES['image']['tmp_name'];
             $info = @getimagesize($tmp);
@@ -1175,17 +1455,129 @@ try {
             if (!$info || !isset($allowed[$info['mime']])) {
                 fail('仅支持 jpg/png/webp/gif');
             }
+            $mime = (string) $info['mime'];
+            if ($mime !== 'image/gif' && !function_exists('imagecreatetruecolor')) {
+                fail('图片处理组件未启用', 500);
+            }
             $uploadDir = $config['upload_dir'] ?? (dirname(__DIR__) . '/uploads');
             $uploadBase = $config['upload_base'] ?? '/uploads';
-            $dir = rtrim($uploadDir, '/') . '/dishes';
-            if (!is_dir($dir)) {
-                @mkdir($dir, 0755, true);
-            }
-            $fn = date('Ymd') . '_' . bin2hex(random_bytes(6)) . '.' . $allowed[$info['mime']];
-            if (!move_uploaded_file($tmp, $dir . '/' . $fn)) {
+            $day = date('Ymd');
+            $originalDir = rtrim($uploadDir, '/') . '/originals/' . $day;
+            $displayDir = rtrim($uploadDir, '/') . '/dishes';
+            ensure_upload_dir($originalDir);
+            ensure_upload_dir($displayDir);
+
+            $baseName = $day . '_' . bin2hex(random_bytes(8));
+            $originalName = $baseName . '.' . $allowed[$mime];
+            $displayName = $baseName . ($mime === 'image/gif' ? '.gif' : '.jpg');
+            $originalPath = $originalDir . '/' . $originalName;
+            $displayPath = $displayDir . '/' . $displayName;
+
+            if (!move_uploaded_file($tmp, $originalPath)) {
                 fail('保存失败', 500);
             }
-            out(['ok' => true, 'imageUrl' => rtrim($uploadBase, '/') . '/dishes/' . $fn]);
+            try {
+                if ($mime === 'image/gif') {
+                    if (!copy($originalPath, $displayPath)) {
+                        throw new RuntimeException('copy display image failed');
+                    }
+                } else {
+                    $maxSide = max(480, (int) ($config['upload_display_max_side'] ?? 1600));
+                    $quality = min(95, max(60, (int) ($config['upload_display_jpeg_quality'] ?? 82)));
+                    create_display_image($originalPath, $mime, $displayPath, $maxSide, $quality);
+                }
+                $imageUrl = rtrim($uploadBase, '/') . '/dishes/' . $displayName;
+                if ($isAvatar) {
+                    @unlink($originalPath);
+                } else {
+                    ensure_photo_backup_jobs_table($pdo);
+                    $pdo->prepare(
+                        'INSERT INTO photo_backup_jobs (display_url, local_original_path, local_display_path, remote_path)
+                         VALUES (?, ?, ?, ?)'
+                    )->execute([$imageUrl, $originalPath, $displayPath, $day . '/' . $originalName]);
+                }
+            } catch (Throwable $e) {
+                @unlink($displayPath);
+                @unlink($originalPath);
+                fail('图片处理失败', 500);
+            }
+            out(['ok' => true, 'imageUrl' => $imageUrl]);
+        }
+
+        case 'photo_backup_status': {
+            ensure_photo_backup_jobs_table($pdo);
+            $counts = ['pending' => 0, 'processing' => 0, 'failed' => 0, 'done' => 0];
+            $rows = $pdo->query(
+                'SELECT status, COUNT(*) AS cnt
+                 FROM photo_backup_jobs
+                 GROUP BY status'
+            )->fetchAll();
+            foreach ($rows as $row) {
+                $status = (string) $row['status'];
+                if (array_key_exists($status, $counts)) {
+                    $counts[$status] = (int) $row['cnt'];
+                }
+            }
+            $failed = $pdo->query(
+                'SELECT id, attempts, last_error, updated_at
+                 FROM photo_backup_jobs
+                 WHERE status = "failed"
+                 ORDER BY updated_at DESC, id DESC
+                 LIMIT 1'
+            )->fetch();
+            out([
+                'ok' => true,
+                'pending' => $counts['pending'],
+                'processing' => $counts['processing'],
+                'failed' => $counts['failed'],
+                'done' => $counts['done'],
+                'active' => $counts['pending'] + $counts['processing'],
+                'latestFailed' => $failed ? [
+                    'id' => (int) $failed['id'],
+                    'attempts' => (int) $failed['attempts'],
+                    'lastError' => (string) ($failed['last_error'] ?? ''),
+                    'updatedAt' => (string) ($failed['updated_at'] ?? ''),
+                ] : null,
+            ]);
+        }
+
+        case 'retry_photo_backups': {
+            ensure_photo_backup_jobs_table($pdo);
+            $count = $pdo->exec(
+                'UPDATE photo_backup_jobs
+                 SET status = "pending", attempts = 0, last_error = NULL, updated_at = NOW()
+                 WHERE status = "failed"'
+            );
+            out(['ok' => true, 'count' => (int) $count]);
+        }
+
+        case 'download_original': {
+            ensure_photo_backup_jobs_table($pdo);
+            $imageUrl = trim((string) ($body['imageUrl'] ?? ''));
+            if ($imageUrl === '') {
+                fail('缺少图片地址');
+            }
+            $st = $pdo->prepare(
+                'SELECT local_original_path, remote_path, status
+                 FROM photo_backup_jobs
+                 WHERE display_url = ?
+                 ORDER BY id DESC
+                 LIMIT 1'
+            );
+            $st->execute([$imageUrl]);
+            $job = $st->fetch();
+            if (!$job) {
+                fail('这张照片没有原图备份', 404);
+            }
+            $localPath = (string) ($job['local_original_path'] ?? '');
+            if ($localPath !== '' && is_file($localPath)) {
+                stream_image_file($localPath);
+            }
+            $remotePath = (string) ($job['remote_path'] ?? '');
+            if ($remotePath === '') {
+                fail('原图暂时取不到', 404);
+            }
+            stream_webdav_image($config, $remotePath);
         }
 
         /* ============ 心愿清单（想去的地方）：情侣共编 ============ */
@@ -1430,8 +1822,48 @@ try {
             out(['ok' => true, 'id' => $id]);
         }
 
+        case 'set_journey_cover_photo': {
+            $id = (string) ($body['id'] ?? '');
+            if ($id === '') {
+                fail('缺少照片 id');
+            }
+            $st = $pdo->prepare('SELECT journey_id FROM journey_photos WHERE id = ?');
+            $st->execute([$id]);
+            $journeyId = (string) ($st->fetchColumn() ?: '');
+            if ($journeyId === '') {
+                fail('照片不存在', 404);
+            }
+            $list = $pdo->prepare('SELECT id FROM journey_photos WHERE journey_id = ? ORDER BY sort_order ASC, id ASC');
+            $list->execute([$journeyId]);
+            $photoIds = array_map(static fn ($row) => (string) $row['id'], $list->fetchAll());
+            $ordered = array_merge([$id], array_values(array_filter($photoIds, static fn ($photoId) => $photoId !== $id)));
+            $pdo->beginTransaction();
+            try {
+                $up = $pdo->prepare('UPDATE journey_photos SET sort_order = ? WHERE id = ?');
+                foreach ($ordered as $i => $photoId) {
+                    $up->execute([$i, $photoId]);
+                }
+                $pdo->commit();
+            } catch (Throwable $e) {
+                $pdo->rollBack();
+                throw $e;
+            }
+            out(['ok' => true]);
+        }
+
         case 'del_journey_photo': {
             $id = (string) ($body['id'] ?? '');
+            if ($id === '') {
+                fail('缺少照片 id');
+            }
+            $st = $pdo->prepare('SELECT image_url FROM journey_photos WHERE id = ?');
+            $st->execute([$id]);
+            $imageUrl = (string) ($st->fetchColumn() ?: '');
+            try {
+                cleanup_journey_photo_backup_if_unused($pdo, $config, $imageUrl, $id);
+            } catch (Throwable $e) {
+                fail('夸克原图删除失败', 502);
+            }
             $pdo->prepare('DELETE FROM journey_photos WHERE id = ?')->execute([$id]);
             out(['ok' => true]);
         }

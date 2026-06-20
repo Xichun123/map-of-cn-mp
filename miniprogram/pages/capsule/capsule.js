@@ -88,6 +88,7 @@ Page({
     wx.chooseMedia({
       count: 6 - photos.length,
       mediaType: ['image'],
+      sizeType: ['original'],
       sourceType: ['album', 'camera'],
       success: async (res) => {
         const temps = (res.tempFiles || []).map((f) => f.tempFilePath)

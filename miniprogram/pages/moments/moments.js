@@ -1,5 +1,6 @@
 const app = getApp()
 const api = require('../../utils/api')
+const { chooseImagesMany } = require('../../utils/media')
 
 Page({
   data: {
@@ -34,15 +35,15 @@ Page({
     }
   },
 
-  choose() {
-    wx.chooseMedia({
-      count: 9,
-      mediaType: ['image'],
-      sourceType: ['album', 'camera'],
-      success: (res) => {
-        res.tempFiles.forEach((f) => this.upload(f.tempFilePath))
-      },
-    })
+  async choose() {
+    try {
+      const paths = await chooseImagesMany()
+      for (const path of paths) {
+        await this.upload(path)
+      }
+    } catch (e) {
+      wx.showToast({ title: '这次没选上照片', icon: 'none' })
+    }
   },
 
   async upload(filePath) {

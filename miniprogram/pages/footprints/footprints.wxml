@@ -147,7 +147,7 @@
             <image class="ck-photo" src="{{item}}" mode="aspectFill"></image>
             <view class="ck-photo-del pressable" hover-class="pressed" data-idx="{{index}}" catchtap="removePhoto">×</view>
           </view>
-          <view wx:if="{{checkin.photos.length < 4}}" class="ck-photo-add pressable" hover-class="pressed" bindtap="choosePhoto">
+          <view wx:if="{{checkin.photos.length < maxJourneyPhotos}}" class="ck-photo-add pressable" hover-class="pressed" bindtap="choosePhoto">
             <text class="ck-add-ico">＋</text>
             <text class="ck-add-txt">照片</text>
           </view>

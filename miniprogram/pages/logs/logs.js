@@ -93,7 +93,7 @@ Page({
   async chooseCover() {
     const user = app.getUser()
     if (!user || !user.openid) return
-    wx.chooseMedia({ count: 1, mediaType: ['image'], sourceType: ['album', 'camera'], success: async res => {
+    wx.chooseMedia({ count: 1, mediaType: ['image'], sizeType: ['original'], sourceType: ['album', 'camera'], success: async res => {
       const f = res.tempFiles[0].tempFilePath
       try {
         const up = await api.uploadImage(f, user.openid)

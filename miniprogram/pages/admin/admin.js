@@ -1,7 +1,9 @@
 const app = getApp()
 const api = require('../../utils/api')
-const { TONE_LIST, anniversaryCount, prettyDate, todayISO } = require('../../utils/util')
+const { TONE_LIST, TONE_NAMES, anniversaryCount, prettyDate, todayISO, toneGradient } = require('../../utils/util')
+const { chooseImagesMany } = require('../../utils/media')
 
+const MAX_JOURNEY_PHOTOS = 99
 const SPICY = ['不辣', '微辣', '中辣', '重辣']
 const STATUS_FLOW = [
   { key: 'pending', label: '待处理' },
@@ -31,6 +33,43 @@ function seasonFromDate(date) {
   return '冬'
 }
 
+function backupStatusView(data = {}) {
+  const pending = Number(data.pending) || 0
+  const processing = Number(data.processing) || 0
+  const failed = Number(data.failed) || 0
+  const active = pending + processing
+  const latestFailed = data.latestFailed || null
+  let state = 'ok'
+  let stateText = '正常'
+  let detail = '没有待处理的原图'
+  if (failed > 0) {
+    state = 'bad'
+    stateText = '有失败'
+    detail = `${failed} 张原图备份失败，本地原图已保留`
+  } else if (active > 0) {
+    state = 'busy'
+    stateText = '备份中'
+    detail = `${active} 张原图等待上传到夸克`
+  }
+  if (latestFailed && latestFailed.lastError) {
+    detail += ` · ${String(latestFailed.lastError).slice(0, 40)}`
+  }
+  return {
+    pending,
+    processing,
+    failed,
+    active,
+    done: Number(data.done) || 0,
+    state,
+    stateText,
+    detail,
+  }
+}
+
+function emptyPhotoPreview() {
+  return { show: false, kind: '', index: -1, id: '', url: '', tone: '', isCover: false }
+}
+
 Page({
   data: {
     tab: 'todo',
@@ -51,6 +90,8 @@ Page({
     todoGroups: [],
     todoSummary: { total: 0, journeys: 0, stops: 0 },
     todoLoaded: false,
+    backupLoaded: false,
+    backupStatus: backupStatusView(),
 
     // 足迹 / 城市
     journeys: [],
@@ -60,6 +101,7 @@ Page({
     anniLoaded: false,
 
     toneList: TONE_LIST,
+    toneSwatches: TONE_LIST.map((tone) => ({ tone, name: TONE_NAMES[tone] || tone.replace(/^tone-/, ''), grad: toneGradient(tone) })),
 
     spicyOptions: SPICY,
     statusFlow: STATUS_FLOW,
@@ -70,6 +112,7 @@ Page({
       landmark: '', title: '', intro: '', toneIndex: 0, coverTone: TONE_LIST[0],
       latitude: '', longitude: '', tagsText: '', notesText: '', geoLoading: false,
     },
+    photoPreview: emptyPhotoPreview(),
     // 纪念日编辑器
     anniEditor: { show: false, id: '', label: '', date: '', city: '', repeatYearly: false },
 
@@ -134,9 +177,10 @@ Page({
   /* ---------------- 读取 ---------------- */
   async loadTodo() {
     try {
-      const [journeyData, planData] = await Promise.all([
+      const [journeyData, planData, backupData] = await Promise.all([
         api.admin({ action: 'admin_journeys', openid: this.data.openid }),
         api.admin({ action: 'admin_plans', openid: this.data.openid }),
+        api.admin({ action: 'photo_backup_status', openid: this.data.openid }).catch(() => null),
       ])
       const issues = []
       ;(journeyData.journeys || []).forEach((j) => {
@@ -169,9 +213,25 @@ Page({
           stops: issues.filter((x) => x.type === '行程').length,
         },
         todoLoaded: true,
+        backupLoaded: !!backupData,
+        backupStatus: backupStatusView(backupData || {}),
       })
     } catch (e) {
       wx.showToast({ title: '整理清单暂时没翻到', icon: 'none' })
+    }
+  },
+
+  async retryPhotoBackups() {
+    if (!this.data.backupStatus.failed) return
+    wx.showLoading({ title: '重新排队中', mask: true })
+    try {
+      const r = await api.admin({ action: 'retry_photo_backups', openid: this.data.openid })
+      wx.hideLoading()
+      wx.showToast({ title: `已重试 ${r.count || 0} 张`, icon: 'none' })
+      await this.loadTodo()
+    } catch (e) {
+      wx.hideLoading()
+      wx.showToast({ title: '暂时没排进去', icon: 'none' })
     }
   },
 
@@ -340,7 +400,7 @@ Page({
     wx.chooseMedia({
       count: 1,
       mediaType: ['image'],
-      sizeType: ['compressed'],
+      sizeType: ['original'],
       success: async (res) => {
         const file = res.tempFiles[0]
         if (!file) return
@@ -538,53 +598,49 @@ Page({
   },
   async chooseJourneyPhoto() {
     const ed = this.data.journeyEditor
-    // 新足迹（尚未保存）：一次可多选，先暂存本地预览，保存时一并上传
-    if (!ed.id) {
-      wx.chooseMedia({
-        count: 9,
-        mediaType: ['image'],
-        sizeType: ['compressed'],
-        success: (res) => {
-          const paths = (res.tempFiles || []).map((f) => f.tempFilePath).filter(Boolean)
-          if (!paths.length) return
-          const pending = (this.data.journeyEditor.pendingPhotos || []).concat(paths)
-          this.setData({ ['journeyEditor.pendingPhotos']: pending })
-          wx.showToast({ title: `已放入 ${paths.length} 张照片`, icon: 'none' })
-        },
-      })
+    const currentCount = (ed.photos || []).length + (ed.pendingPhotos || []).length
+    const remaining = MAX_JOURNEY_PHOTOS - currentCount
+    if (remaining <= 0) {
+      wx.showToast({ title: `最多放 ${MAX_JOURNEY_PHOTOS} 张照片`, icon: 'none' })
       return
     }
-    wx.chooseMedia({
-      count: 9,
-      mediaType: ['image'],
-      sizeType: ['compressed'],
-      success: async (res) => {
-        const paths = (res.tempFiles || []).map((f) => f.tempFilePath).filter(Boolean)
-        if (!paths.length) return
-        this.setData({ ['journeyEditor.uploading']: true })
-        let done = 0
-        const failed = []
-        wx.showLoading({ title: `正在收藏 0/${paths.length}`, mask: true })
-        for (const fp of paths) {
-          try {
-            await this.uploadOneJourneyPhoto(fp, ed)
-          } catch (e) {
-            failed.push(api.uploadErrorMessage(e))
-          }
-          done += 1
-          wx.showLoading({ title: `正在收藏 ${done}/${paths.length}`, mask: true })
-        }
-        try {
-          await this.loadJourneys()
-          const fresh = this.data.journeys.find((x) => x.id === ed.id)
-          this.setData({ ['journeyEditor.photos']: fresh ? fresh.photos || [] : [], ['journeyEditor.uploading']: false })
-        } catch (e) {
-          this.setData({ ['journeyEditor.uploading']: false })
-        }
-        wx.hideLoading()
-        if (failed.length) wx.showModal({ title: '有照片没传上去', content: failed[0], showCancel: false })
-      },
-    })
+    let paths = []
+    try {
+      paths = await chooseImagesMany(remaining)
+    } catch (e) {
+      wx.showToast({ title: '这次没选上照片', icon: 'none' })
+      return
+    }
+    if (!paths.length) return
+    // 新足迹（尚未保存）：先暂存本地预览，保存时一并上传
+    if (!ed.id) {
+      const pending = (this.data.journeyEditor.pendingPhotos || []).concat(paths)
+      this.setData({ ['journeyEditor.pendingPhotos']: pending })
+      wx.showToast({ title: `已放入 ${paths.length} 张照片`, icon: 'none' })
+      return
+    }
+    this.setData({ ['journeyEditor.uploading']: true })
+    let done = 0
+    const failed = []
+    wx.showLoading({ title: `正在收藏 0/${paths.length}`, mask: true })
+    for (const fp of paths) {
+      try {
+        await this.uploadOneJourneyPhoto(fp, ed)
+      } catch (e) {
+        failed.push(api.uploadErrorMessage(e))
+      }
+      done += 1
+      wx.showLoading({ title: `正在收藏 ${done}/${paths.length}`, mask: true })
+    }
+    try {
+      await this.loadJourneys()
+      const fresh = this.data.journeys.find((x) => x.id === ed.id)
+      this.setData({ ['journeyEditor.photos']: fresh ? fresh.photos || [] : [], ['journeyEditor.uploading']: false })
+    } catch (e) {
+      this.setData({ ['journeyEditor.uploading']: false })
+    }
+    wx.hideLoading()
+    if (failed.length) wx.showModal({ title: '有照片没传上去', content: failed[0], showCancel: false })
   },
   async uploadOneJourneyPhoto(tempFilePath, ed) {
     const { imageUrl } = await api.uploadDishImage(tempFilePath, this.data.openid)
@@ -604,6 +660,58 @@ Page({
     pending.splice(i, 1)
     this.setData({ ['journeyEditor.pendingPhotos']: pending })
   },
+  openJourneyPhotoPreview(e) {
+    const kind = e.currentTarget.dataset.kind
+    const index = Number(e.currentTarget.dataset.index)
+    if (index < 0) return
+    if (kind === 'pending') {
+      const url = (this.data.journeyEditor.pendingPhotos || [])[index]
+      if (!url) return
+      this.setData({ photoPreview: { show: true, kind, index, id: '', url, tone: '', isCover: index === 0 } })
+      return
+    }
+    const photo = (this.data.journeyEditor.photos || [])[index]
+    if (!photo) return
+    this.setData({
+      photoPreview: {
+        show: true,
+        kind: 'saved',
+        index,
+        id: photo.id || '',
+        url: photo.imageUrl || '',
+        tone: photo.tone || '',
+        isCover: index === 0,
+      },
+    })
+  },
+  closeJourneyPhotoPreview() {
+    this.setData({ photoPreview: emptyPhotoPreview() })
+  },
+  async setPreviewCoverPhoto() {
+    const preview = this.data.photoPreview || {}
+    if (!preview.show || preview.isCover) return
+    if (preview.kind === 'pending') {
+      const pending = (this.data.journeyEditor.pendingPhotos || []).slice()
+      const i = Number(preview.index)
+      if (i <= 0 || i >= pending.length) return
+      const picked = pending.splice(i, 1)[0]
+      this.setData({ ['journeyEditor.pendingPhotos']: [picked].concat(pending), photoPreview: emptyPhotoPreview() })
+      wx.showToast({ title: '已设为封面', icon: 'success' })
+      return
+    }
+    const id = preview.id
+    const jid = this.data.journeyEditor.id
+    if (!id || !jid) return
+    try {
+      await api.admin({ action: 'set_journey_cover_photo', openid: this.data.openid, id })
+      await this.loadJourneys()
+      const fresh = this.data.journeys.find((x) => x.id === jid)
+      this.setData({ ['journeyEditor.photos']: fresh ? fresh.photos || [] : [], photoPreview: emptyPhotoPreview() })
+      wx.showToast({ title: '已设为封面', icon: 'success' })
+    } catch (err) {
+      wx.showToast({ title: (err && err.data && err.data.message) || '封面没设置成功', icon: 'none' })
+    }
+  },
   delJourneyPhoto(e) {
     const id = e.currentTarget.dataset.id
     const jid = this.data.journeyEditor.id
@@ -618,13 +726,13 @@ Page({
           const fresh = this.data.journeys.find((x) => x.id === jid)
           this.setData({ ['journeyEditor.photos']: fresh ? fresh.photos || [] : [] })
         } catch (err) {
-          wx.showToast({ title: '这张照片暂时没删掉', icon: 'none' })
+          wx.showToast({ title: (err && err.data && err.data.message) || '这张照片暂时没删掉', icon: 'none' })
         }
       },
     })
   },
   closeJourneyEditor() {
-    this.setData({ ['journeyEditor.show']: false })
+    this.setData({ ['journeyEditor.show']: false, photoPreview: emptyPhotoPreview() })
   },
   onJourneyField(e) {
     const f = e.currentTarget.dataset.f

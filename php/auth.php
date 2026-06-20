@@ -20,6 +20,74 @@ function fail(string $msg, int $code = 400): void
     exit;
 }
 
+function auth_webdav_url(array $config, string $relative): string
+{
+    $base = rtrim((string) ($config['quark_webdav_base'] ?? ''), '/');
+    if ($base === '') {
+        return '';
+    }
+    $parts = array_values(array_filter(explode('/', trim($relative, '/')), static fn ($part) => $part !== ''));
+    return $base . '/' . implode('/', array_map('rawurlencode', $parts));
+}
+
+function auth_delete_webdav_file(array $config, string $remotePath): void
+{
+    $user = (string) ($config['quark_webdav_user'] ?? '');
+    $pass = (string) ($config['quark_webdav_pass'] ?? '');
+    $url = auth_webdav_url($config, $remotePath);
+    if ($user === '' || $pass === '' || $url === '') {
+        return;
+    }
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_CUSTOMREQUEST => 'DELETE',
+        CURLOPT_HTTPAUTH => CURLAUTH_BASIC,
+        CURLOPT_USERPWD => $user . ':' . $pass,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CONNECTTIMEOUT => 5,
+        CURLOPT_TIMEOUT => 20,
+        CURLOPT_HTTPHEADER => ['Expect:'],
+    ]);
+    curl_exec($ch);
+    curl_close($ch);
+}
+
+function cleanup_avatar_backup(PDO $pdo, array $config, string $avatarUrl): void
+{
+    if ($avatarUrl === '') {
+        return;
+    }
+    try {
+        $exists = $pdo->query("SHOW TABLES LIKE 'photo_backup_jobs'")->fetchColumn();
+        if (!$exists) {
+            return;
+        }
+        $st = $pdo->prepare(
+            'SELECT id, local_original_path, remote_path
+             FROM photo_backup_jobs
+             WHERE display_url = ?'
+        );
+        $st->execute([$avatarUrl]);
+        $rows = $st->fetchAll();
+        foreach ($rows as $row) {
+            $local = (string) ($row['local_original_path'] ?? '');
+            $remote = (string) ($row['remote_path'] ?? '');
+            if ($local !== '' && is_file($local)) {
+                @unlink($local);
+            }
+            if ($remote !== '') {
+                auth_delete_webdav_file($config, $remote);
+            }
+        }
+        if ($rows) {
+            $delete = $pdo->prepare('DELETE FROM photo_backup_jobs WHERE display_url = ?');
+            $delete->execute([$avatarUrl]);
+        }
+    } catch (Throwable $e) {
+        error_log('cleanup_avatar_backup failed: ' . $e->getMessage());
+    }
+}
+
 try {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         fail('method_not_allowed', 405);
@@ -78,6 +146,7 @@ try {
             avatar_url = IF(VALUES(avatar_url) = \'\', avatar_url, VALUES(avatar_url))'
     );
     $stmt->execute([':o' => $openid, ':n' => $nickname, ':a' => $avatar]);
+    cleanup_avatar_backup($pdo, $config, $avatar);
 
     $row = $pdo->prepare('SELECT openid, nickname, avatar_url, is_admin FROM app_users WHERE openid = ?');
     $row->execute([$openid]);

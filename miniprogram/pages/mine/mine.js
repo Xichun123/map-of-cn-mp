@@ -65,6 +65,7 @@ Page({
     loggingIn: false,
     savingName: false,
     aiEnabled: false,
+    hapticsEnabled: true,
     headStats: { days: 0, cities: 0, provinces: 0, spots: 0, photos: 0 },
     showcase: { latest: '', nextAnniv: null },
   },
@@ -86,7 +87,12 @@ Page({
       this.getTabBar().setData({ selected: 4 })
     }
     const user = app.getUser()
-    this.setData({ user, monogram: this.monogram(user), nickInput: (user && user.nickname) || '' })
+    this.setData({
+      user,
+      monogram: this.monogram(user),
+      nickInput: (user && user.nickname) || '',
+      hapticsEnabled: app.getHapticsEnabled ? app.getHapticsEnabled() : true,
+    })
     if (user && user.openid) {
       this.loadOrders()
       this.refreshAdmin()
@@ -213,6 +219,13 @@ Page({
 
   openLogs() { wx.navigateTo({ url: '/pages/logs/logs' }) },
 
+  toggleHaptics(e) {
+    const enabled = !!(e.detail && e.detail.value)
+    const next = app.setHapticsEnabled ? app.setHapticsEnabled(enabled) : enabled
+    this.setData({ hapticsEnabled: next })
+    if (next) wx.vibrateShort && wx.vibrateShort({ type: 'light' })
+  },
+
   claimAdmin() {
     const user = this.data.user
     if (!user || !user.openid) return
@@ -281,7 +294,7 @@ Page({
     if (!tempUrl || !user || !user.openid) return
     wx.showLoading({ title: '上传中', mask: true })
     try {
-      const { imageUrl } = await api.uploadImage(tempUrl, user.openid)
+      const { imageUrl } = await api.uploadImage(tempUrl, user.openid, { purpose: 'avatar' })
       const next = await app.login({ avatarUrl: imageUrl })
       this.setData({ user: next, monogram: this.monogram(next) })
       wx.hideLoading()

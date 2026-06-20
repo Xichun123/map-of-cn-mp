@@ -2,6 +2,7 @@ const app = getApp()
 const api = require('../../utils/api')
 const { prettyDate, toneGradient } = require('../../utils/util')
 const { buildJourneyPoster } = require('../../utils/poster')
+const { saveImage } = require('../../utils/photo-save')
 
 function drawCover(ctx, img, dx, dy, dw, dh) {
   const ir = img.width / img.height
@@ -119,58 +120,7 @@ Page({
   },
 
   saveImageUrl(url) {
-    wx.vibrateShort && wx.vibrateShort({ type: 'light' })
-    wx.showLoading({ title: '保存中…', mask: true })
-    const doSave = () => {
-      wx.downloadFile({
-        url,
-        success: (r) => {
-          if (r.statusCode !== 200) {
-            wx.hideLoading()
-            wx.showToast({ title: '照片暂时取不到', icon: 'none' })
-            return
-          }
-          wx.saveImageToPhotosAlbum({
-            filePath: r.tempFilePath,
-            success: () => {
-              wx.hideLoading()
-              wx.showToast({ title: '已保存到相册', icon: 'success' })
-            },
-            fail: () => {
-              wx.hideLoading()
-              wx.showToast({ title: '暂时没保存成功', icon: 'none' })
-            },
-          })
-        },
-        fail: () => {
-          wx.hideLoading()
-          wx.showToast({ title: '照片暂时取不到', icon: 'none' })
-        },
-      })
-    }
-    wx.getSetting({
-      success: (res) => {
-        if (res.authSetting['scope.writePhotosAlbum'] === false) {
-          wx.hideLoading()
-          wx.showModal({
-            title: '需要相册权限',
-            content: '请在设置中允许保存到相册',
-            confirmText: '去设置',
-            success: (m) => {
-              if (!m.confirm) return
-              wx.openSetting({
-                success: (s) => {
-                  if (s.authSetting['scope.writePhotosAlbum']) doSave()
-                },
-              })
-            },
-          })
-        } else {
-          doSave()
-        }
-      },
-      fail: () => doSave(),
-    })
+    saveImage(url, { original: true, saveFailText: '暂时没保存成功' })
   },
 
   resolvePhotoShapes(photos) {

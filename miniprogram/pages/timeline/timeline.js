@@ -1,7 +1,10 @@
 const api = require('../../utils/api')
 const { prettyDate, todayISO, toneGradient, anniversaryCount, weatherGlyph, seasonGlyph } = require('../../utils/util')
 const { REGIONS, PROVINCES } = require('../../utils/regions')
+const { chooseImagesMany } = require('../../utils/media')
 const app = getApp()
+
+const MAX_JOURNEY_PHOTOS = 99
 
 function validCoord(lat, lng) {
   const latitude = Number(lat)
@@ -25,6 +28,7 @@ Page({
     filtered: [],
     aiEnabled: false,
     PROVINCES: PROVINCES,
+    maxJourneyPhotos: MAX_JOURNEY_PHOTOS,
     recorder: { show: false, saving: false, provinceIndex: 0, cityIndex: 0, cityOptions: [], province: '', city: '', date: '', title: '', intro: '', season: '', photos: [] },
   },
 
@@ -263,15 +267,20 @@ Page({
     this.setData({ 'recorder.season': this.data.recorder.season === s ? '' : s })
   },
 
-  recChoosePhoto() {
-    wx.chooseMedia({
-      count: 9, mediaType: ['image'], sourceType: ['album', 'camera'],
-      success: (res) => {
-        const existing = this.data.recorder.photos || []
-        const newFiles = res.tempFiles.map(f => f.tempFilePath)
-        this.setData({ 'recorder.photos': [...existing, ...newFiles].slice(0, 9) })
-      },
-    })
+  async recChoosePhoto() {
+    const existing = this.data.recorder.photos || []
+    const remaining = MAX_JOURNEY_PHOTOS - existing.length
+    if (remaining <= 0) {
+      wx.showToast({ title: `最多放 ${MAX_JOURNEY_PHOTOS} 张照片`, icon: 'none' })
+      return
+    }
+    try {
+      const newFiles = await chooseImagesMany(remaining)
+      if (!newFiles.length) return
+      this.setData({ 'recorder.photos': [...existing, ...newFiles] })
+    } catch (e) {
+      wx.showToast({ title: '这次没选上照片', icon: 'none' })
+    }
   },
 
   recRemovePhoto(e) {

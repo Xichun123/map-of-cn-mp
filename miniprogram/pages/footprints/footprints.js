@@ -2,6 +2,9 @@ const app = getApp()
 const api = require('../../utils/api')
 const { REGIONS, PROVINCES } = require('../../utils/regions')
 const { todayISO } = require('../../utils/util')
+const { chooseImagesMany } = require('../../utils/media')
+
+const MAX_JOURNEY_PHOTOS = 99
 
 // 城市名归一（去后缀），用于分组与计数
 function cityKey(c) {
@@ -79,6 +82,7 @@ Page({
     showRoute: false,
     polyline: [],
     PROVINCES: PROVINCES,
+    maxJourneyPhotos: MAX_JOURNEY_PHOTOS,
     checkin: { show: false, locating: false, saving: false, lat: 0, lng: 0, city: '', province: '', title: '', weather: '', season: '', photos: [], provinceIndex: 0, cityIndex: 0, cityOptions: [] },
     compare: null,
     compareLoading: false,
@@ -313,16 +317,21 @@ Page({
 
   onCheckinTitle(e) { this.setData({ 'checkin.title': e.detail.value }) },
 
-  choosePhoto() {
-    wx.chooseMedia({
-      count: 4, mediaType: ['image'], sourceType: ['album', 'camera'],
-      success: (res) => {
-        const existing = this.data.checkin.photos || []
-        const newFiles = res.tempFiles.map(f => f.tempFilePath)
-        this.setData({ 'checkin.photos': [...existing, ...newFiles].slice(0, 4) })
-        wx.showToast({ title: `已放入 ${newFiles.length} 张照片`, icon: 'none' })
-      },
-    })
+  async choosePhoto() {
+    const existing = this.data.checkin.photos || []
+    const remaining = MAX_JOURNEY_PHOTOS - existing.length
+    if (remaining <= 0) {
+      wx.showToast({ title: `最多放 ${MAX_JOURNEY_PHOTOS} 张照片`, icon: 'none' })
+      return
+    }
+    try {
+      const newFiles = await chooseImagesMany(remaining)
+      if (!newFiles.length) return
+      this.setData({ 'checkin.photos': [...existing, ...newFiles] })
+      wx.showToast({ title: `已放入 ${newFiles.length} 张照片`, icon: 'none' })
+    } catch (e) {
+      wx.showToast({ title: '这次没选上照片', icon: 'none' })
+    }
   },
 
   removePhoto(e) {

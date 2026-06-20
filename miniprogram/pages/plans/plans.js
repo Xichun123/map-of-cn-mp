@@ -1229,7 +1229,7 @@ Page({
       return
     }
     wx.chooseMedia({
-      count: 1, mediaType: ['image'], sizeType: ['compressed'], sourceType: ['album', 'camera'],
+      count: 1, mediaType: ['image'], sizeType: ['original'], sourceType: ['album', 'camera'],
       success: (res) => {
         const filePath = res.tempFiles && res.tempFiles[0] && res.tempFiles[0].tempFilePath
         if (!filePath) return

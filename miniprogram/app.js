@@ -1,5 +1,16 @@
 const api = require('./utils/api')
 
+const HAPTICS_ENABLED_KEY = 'settings_haptics_enabled'
+
+function readHapticsEnabled() {
+  try {
+    const stored = wx.getStorageSync(HAPTICS_ENABLED_KEY)
+    return stored === '' ? true : stored !== false
+  } catch (e) {
+    return true
+  }
+}
+
 App({
   globalData: {
     apiBase: 'https://silvia.dpdns.org/api',
@@ -10,9 +21,11 @@ App({
     user: null,
     networkType: 'unknown',
     networkWeak: false,
+    hapticsEnabled: true,
   },
 
   onLaunch() {
+    this.installHaptics()
     const user = wx.getStorageSync('user')
     if (user && user.openid) this.globalData.user = user
     // AI 开关：始终以服务器为准，默认关闭。后台一关，小程序立即隐藏所有 AI 入口。
@@ -34,6 +47,34 @@ App({
       // 静默，不打扰用户，仅记录
       try { wx.setStorageSync('last_error', String(msg).slice(0, 200)) } catch(e) {}
     })
+  },
+
+  installHaptics() {
+    this.globalData.hapticsEnabled = readHapticsEnabled()
+    if (this._hapticsPatched || typeof wx.vibrateShort !== 'function') return
+    this._nativeVibrateShort = wx.vibrateShort.bind(wx)
+    const app = this
+    wx.vibrateShort = function (options = {}) {
+      options = options || {}
+      if (app.globalData.hapticsEnabled === false) {
+        if (typeof options.success === 'function') options.success({ errMsg: 'vibrateShort:ok' })
+        if (typeof options.complete === 'function') options.complete({ errMsg: 'vibrateShort:ok' })
+        return
+      }
+      return app._nativeVibrateShort(options)
+    }
+    this._hapticsPatched = true
+  },
+
+  getHapticsEnabled() {
+    return this.globalData.hapticsEnabled !== false
+  },
+
+  setHapticsEnabled(enabled) {
+    const next = !!enabled
+    this.globalData.hapticsEnabled = next
+    try { wx.setStorageSync(HAPTICS_ENABLED_KEY, next) } catch (e) {}
+    return next
   },
 
   // 页面 onShow 里调此方法：先用已知值立即渲染，再静默拉服务器最新值，有变化就更新页面。
